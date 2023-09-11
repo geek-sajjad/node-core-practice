@@ -38,26 +38,40 @@ const server = createServer((req, res) => {
   }
 
   if ((req.url = "video-file")) {
-    // return readFile("video.mp4", (err, data) => {
-    //   if (err) {
-    //     return res
-    //       .writeHead(500, { "Content-Type": "text/plain" })
-    //       .end("Internal Error");
-    //   }
-    // });
-
-    res.writeHead(200, {
-      // "Content-Type": "video/mp4",
-      "Content-Type": "application/octet-stream",
-      "Content-Disposition": `attachment; filename="video.mp4"`,
-    });
-
+    const stat = statSync("video.mp4");
+    const videoSize = stat.size;
     const chunkSize = 30 * 1024;
+
+    const range = req.headers.range;
+
+    let header = {
+      "Content-Disposition": `attachment; filename="video.mp4"`,
+      "Content-Type": "video/mp4",
+      "Content-Length": videoSize,
+      "Accept-Ranges": "bytes",
+    };
+    console.log(req.headers.agent);
+    console.log(range);
+
+    if (range) {
+      const start = Number(range.replace(/\D/g, ""));
+      const end = Math.min(start + chunkSize, videoSize - 1);
+      const contentLength = end - start + 1;
+
+      header["Content-Range"] = `bytes ${start}-${end}/${videoSize}`;
+      header["Content-Length"] = contentLength;
+    }
+
+    res.writeHead(200, header);
+
     const delayBetweenChunks = 1000; // 1 second (adjust as needed)
 
     const readStream = createReadStream("video.mp4", {
       highWaterMark: chunkSize,
+      // start,
+      // end,
     });
+
     readStream.on("end", () => {
       res.end(); // End the response when the stream is finished
     });
@@ -72,7 +86,7 @@ const server = createServer((req, res) => {
 
       // if (!chunk) return;
 
-      console.log(`Received ${chunk.length} bytes of data`);
+      // console.log(`Received ${chunk.length} bytes of data`);
       res.write(chunk);
       readStream.pause();
 
