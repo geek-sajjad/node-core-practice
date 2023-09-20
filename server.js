@@ -42,7 +42,9 @@ const server = createServer((req, res) => {
     const videoSize = stat.size;
     const chunkSize = 30 * 1024;
 
-    const range = req.headers.range;
+    let range = req.headers.range;
+
+    if (!range) range = `0-`;
 
     let header = {
       "Content-Disposition": `attachment; filename="video.mp4"`,
@@ -50,17 +52,15 @@ const server = createServer((req, res) => {
       "Content-Length": videoSize,
       "Accept-Ranges": "bytes",
     };
+    const start = Number(range.replace(/\D/g, ""));
+    const end = Math.min(start + chunkSize, videoSize - 1);
+    const contentLength = end - start + 1;
+
+    header["Content-Range"] = `bytes ${start}-${end}/${videoSize}`;
+    header["Content-Length"] = contentLength;
+
     console.log(req.headers.agent);
     console.log(range);
-
-    if (range) {
-      const start = Number(range.replace(/\D/g, ""));
-      const end = Math.min(start + chunkSize, videoSize - 1);
-      const contentLength = end - start + 1;
-
-      header["Content-Range"] = `bytes ${start}-${end}/${videoSize}`;
-      header["Content-Length"] = contentLength;
-    }
 
     res.writeHead(200, header);
 
